@@ -14,7 +14,7 @@ db = SQLAlchemy(app)
 #DB모델
 class Nickname(db.Model):
     id = db.Column(db.Integer, primary_key = True) #ID coulmn(primary key)
-    name = db.Column(db.String(50), unique = True)  #NAME coulmn
+    name = db.Column(db.String(50), unique = True)  #NAME coulmn 
 
     def __repr__(self):
         return f'<Nickname {self.name}>'
