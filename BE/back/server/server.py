@@ -19,7 +19,7 @@ class Nickname(db.Model):
 
 @app.route("/")
 def get_nickname():
-    nicknames = Nickname.query.all() #DB에서 모든 닉네임 조회
+    nicknames = Nickname.query.all() #DB에서 모든 닉네임을 조회
     nicknames_list = [{'id': nickname.id, 'name': nickname.name} 
                     for nickname in nicknames]
     return jsonify(nicknames_list)
