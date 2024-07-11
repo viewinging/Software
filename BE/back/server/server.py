@@ -27,7 +27,6 @@ def get_nickname(): #DB->nickname 함수
     return jsonify(nicknames_list)  #json형식-응답 변환
 
 
-
 if __name__ == '__main__':
     with app.app_context():
         db.create_all() #DB 테이블 생성
