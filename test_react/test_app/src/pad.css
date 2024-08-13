@@ -1,0 +1,71 @@
+.pad {
+    position: absolute;
+    left: 80%;
+    top: 50%;
+    transform: translate(-80%, -50%);
+}
+
+.button-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+.my-button {
+    padding: 13px 70px;
+    font-size: 18px;
+    border: none;
+    background-color: #007BFF;
+    color: white;
+    border-radius: 30px;
+    cursor: pointer;
+    outline: none;
+    transition: background-color 0.3s;
+}
+
+.my-button:hover {
+    background-color: #0056b3;
+}
+
+.phone-number-display {
+    font-size: 30px;
+    font-weight: medium;
+    text-align: center;
+    margin-top: 80px;
+    margin-bottom: 20px;
+    padding: 10px;
+    border-radius: 10px;
+    border: none;
+}
+
+.keypad {
+    position: absolute; 
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 40px;
+    justify-items: center;
+    align-items: center;
+}
+
+.keypad-button {
+    background: none;
+    border: none;
+    font-size: 30px;
+    cursor: pointer;
+    transition: color 0.3s;
+    justify-items: center;
+    align-items: center;
+    padding: 3px 35px;
+}
+
+.keypad-button:hover {
+    color: #007BFF;
+}
+
+.delete-button {
+    color: #ff4d4d;
+}
