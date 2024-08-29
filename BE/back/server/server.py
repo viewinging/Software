@@ -10,26 +10,20 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:1234@localhost/vie
 db = SQLAlchemy(app)    
 
 #DB모델
-class Nickname(db.Model):
-    id = db.Column(db.Integer, primary_key = True) #ID coulmn(primary key)
-    name = db.Column(db.String(50), unique = True)  #NAME coulmn.
-
-    def __repr__(self):
-        return f'<Nickname {self.name}>'
-
-class PhoneNumber(db.Model):
+class PhoneNumber(db.Model): #폰번호
     id = db.Column(db.Integer, primary_key=True)
     phone_number = db.Column(db.String(13), unique=True)
 
     def __repr__(self):
         return f'<PhoneNumber {self.phone_number}>'
 
-@app.route("/") #기본경로
-def get_nickname():
-    nicknames = Nickname.query.all() #DB에서 모든 닉네임을 조회
-    nicknames_list = [{'id': nickname.id, 'name': nickname.name}
-                    for nickname in nicknames]
-    return jsonify(nicknames_list)  #json형식-응답 변환
+# class TrashKind(db.Model): #쓰레기종류
+#     id = db.Column(db.Integer, primary_key=True)
+#     trash_name = db.Column(db.String(30), unique=True)
+
+#     def __repr__(self) -> str:
+#         return super().__repr__()
+
 
 @app.route('/submit-phone', methods=['POST'])
 def submit_phone():
@@ -47,6 +41,8 @@ def submit_phone():
         return jsonify({'message': 'Phone number received'}), 200
     else:
         return jsonify({'message': 'Phone number is missing'}), 400
+
+# @app.route('/trach-kind', methods=['POST'])
 
 
 if __name__ == '__main__':
