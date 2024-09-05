@@ -4,14 +4,16 @@ from flask_cors import CORS, cross_origin
 import pymysql
 
 app = Flask(__name__)
-CORS(app, resources={r"/submit-phone": {"origins": "*"}},
-          resources2={r"/trash-kind": {"origins": "*"}}
-     ) 
+#cors연결
+CORS(app, resources={
+        r"/submit-phone": {"origins": "*"},
+        r"/trash-kind": {"origins": "*"}
+     }) 
 
 # DB설정
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:1234@localhost/viewinging' #DB URI
-db = SQLAlchemy(app)    
-# db = pymysql.connect(host='127.0.0.1', user='root', password='1234', charset='utf8')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
 
 #DB모델
 class PhoneNumber(db.Model): #폰번호
@@ -25,12 +27,11 @@ class TrashKind(db.Model): #쓰레기종류
     id = db.Column(db.Integer, primary_key=True)
     trash_name = db.Column(db.String(30), unique=True)
 
-    def __repr__(self) -> str:
-        return super().__repr__()
+    def __repr__(self):
+        return f'<TrashKind {self.trash_name}>'
 
-# #(1)닉네임 함수
-# def selectNickname():
-
+#랜덤_닉네임 함수
+###
 
 @app.route('/submit-phone', methods=['POST'])
 def submit_phone():
@@ -52,13 +53,13 @@ def submit_phone():
         return jsonify({'message': 'Phone number is missing'}), 400
         
 
-#(2)쓰레기의 종류 파악 & 라즈베리에 전달 
+#(2)쓰레기의 종류 파악 | 라즈베리에 전달 
 @app.route('/trash-kind', methods=['POST'])
 def submit_trash():
     data2 = request.get_json()
     trash = data2.get('trash')
     if trash == 'plastic':
-        return jsonify({'message': 'plastic'}), 300
+        return jsonify({'message': 'plastic'}), 200
     else:
         return jsonify({'message': 'Trash is missing'}), 400
         
