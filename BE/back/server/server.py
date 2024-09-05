@@ -1,14 +1,13 @@
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS, cross_origin   
-import pymysql
 
 app = Flask(__name__)
 #cors연결
 CORS(app, resources={
         r"/submit-phone": {"origins": "*"},
         r"/trash-kind": {"origins": "*"}
-     }) 
+     })
 
 # DB설정
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:1234@localhost/viewinging' #DB URI
@@ -30,8 +29,6 @@ class TrashKind(db.Model): #쓰레기종류
     def __repr__(self):
         return f'<TrashKind {self.trash_name}>'
 
-#랜덤_닉네임 함수
-###
 
 @app.route('/submit-phone', methods=['POST'])
 def submit_phone():
@@ -58,12 +55,18 @@ def submit_phone():
 def submit_trash():
     data2 = request.get_json()
     trash = data2.get('trash')
-    if trash == 'plastic':
-        return jsonify({'message': 'plastic'}), 200
+    if trash == '플라스틱':
+        return jsonify({'message': '플라스틱'}), 200
+
+    if trash == '비닐':
+        return jsonify({'message': '비닐'}), 200
+    if trash == '캔':
+        return jsonify({'message': '캔'}), 200
+    if trash == '일반쓰레기':
+        return jsonify({'message': '일반쓰레기'}), 200
     else:
         return jsonify({'message': 'Trash is missing'}), 400
-        
-
+    
 
 
 if __name__ == '__main__':
