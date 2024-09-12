@@ -57,13 +57,12 @@ def submit_trash():
     trash = data2.get('trash')
     if trash == '플라스틱':
         return jsonify({'message': '플라스틱'}), 200
-
-    if trash == '비닐':
+    elif trash == '비닐':
         return jsonify({'message': '비닐'}), 200
-    if trash == '캔':
+    elif trash == '캔':
         return jsonify({'message': '캔'}), 200
-    if trash == '일반쓰레기':
-        return jsonify({'message': '일반쓰레기'}), 200
+    elif trash == '일반쓰레기':
+        return jsonify({'message': '일반'}), 200
     else:
         return jsonify({'message': 'Trash is missing'}), 400
     
