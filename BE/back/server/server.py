@@ -6,7 +6,8 @@ app = Flask(__name__)
 #cors연결
 CORS(app, resources={
         r"/submit-phone": {"origins": "*"},
-        r"/trash-kind": {"origins": "*"}
+        r"/trash-kind": {"origins": "*"},
+        r"/label": {"origins": "*"}
      })
 
 # DB설정
@@ -66,6 +67,18 @@ def submit_trash():
     else:
         return jsonify({'message': 'Trash is missing'}), 400
     
+
+# POST 요청을 받아서 label을 처리하는 엔드포인트
+@app.route('/label', methods=['POST'])
+def receive_label():
+    data = request.get_json()
+    label = data.get('label')
+    if label:
+        print(f"Received label: {label}")
+        return jsonify({'message': 'Label received successfully', 'label': label}), 200
+    else:
+        return jsonify({'error': 'No label provided'}), 400
+
 
 
 if __name__ == '__main__':
