@@ -25,12 +25,13 @@ class PhoneNumber(db.Model): #폰번호
 
 class TrashKind(db.Model): #쓰레기종류
     id = db.Column(db.Integer, primary_key=True)
-    trash_name = db.Column(db.String(30), unique=True)
+    trash_name = db.Column(db.String(30))
 
     def __repr__(self):
         return f'<TrashKind {self.trash_name}>'
 
 
+#폰 번호
 @app.route('/submit-phone', methods=['POST'])
 def submit_phone():
     data = request.get_json()
@@ -49,23 +50,38 @@ def submit_phone():
             return jsonify({'message': 'get new phone_number'}), 200
     else:
         return jsonify({'message': 'Phone number is missing'}), 400
-        
 
-#(2)쓰레기의 종류 파악 | 라즈베리에 전달 
+
+
+
+#쓰레기의 종류
 @app.route('/trash-kind', methods=['POST'])
 def submit_trash():
-    data2 = request.get_json()
-    trash = data2.get('trash')
-    if trash == '플라스틱':
-        return jsonify({'message': '플라스틱'}), 200
-    elif trash == '비닐':
-        return jsonify({'message': '비닐'}), 200
-    elif trash == '캔':
-        return jsonify({'message': '캔'}), 200
-    elif trash == '일반쓰레기':
-        return jsonify({'message': '일반'}), 200
-    else:
-        return jsonify({'message': 'Trash is missing'}), 400
+    data = request.get_json()
+    trash = data.get('trash')
+    if trash:
+        # 기존 데이터 삭제
+        db.session.query(TrashKind).delete()  # 모든 기존 데이터 삭제
+        db.session.commit()
+
+        new_trash = TrashKind(trash_name=trash)
+        db.session.add(new_trash)
+        db.session.commit()
+
+        if trash == '플라스틱':
+            print(f"Received label: {trash}")
+            return jsonify({'message': 'plastic'}), 200
+        elif trash == '비닐':
+            print(f"Received label: {trash}")
+            return jsonify({'message': 'vinyl'}), 200
+        elif trash == '캔':
+            print(f"Received label: {trash}")
+            return jsonify({'message': 'can'}), 200
+        elif trash == '일반쓰레기':
+            print(f"Received label: {trash}")
+            return jsonify({'message': 'general'}), 200
+        else:
+            return jsonify({'message': 'Trash is missing'}), 400
     
 
 # POST 요청을 받아서 label을 처리하는 엔드포인트
