@@ -30,6 +30,12 @@ class TrashKind(db.Model): #쓰레기종류
     def __repr__(self):
         return f'<TrashKind {self.trash_name}>'
 
+class Label(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    label = db.Column(db.String(30))
+
+    def __repr__(self):
+        return f'<Label {self.label}>'
 
 #폰 번호
 @app.route('/submit-phone', methods=['POST'])
@@ -96,6 +102,14 @@ def receive_label():
     data = request.get_json()
     label = data.get('label')
     if label:
+        #기존 데이터 삭제
+        db.session.query(Label).delete()
+        db.session.commit()
+        #새 값 저장
+        new_label = Label(label_name=label)
+        db.session.add(new_label)
+        db.session.commit()
+
         print(f"Received label: {label}")
         return jsonify({'message': 'Label received successfully', 'label': label}), 200
     else:
