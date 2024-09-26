@@ -42,12 +42,18 @@ def submit_phone():
         ex_phone_number = PhoneNumber.query.filter_by(phone_number=phone_number).first()
 
         if ex_phone_number:
-            return jsonify({'message': 'login successful'}), 200
+            last_four = ex_phone_number.phone_number[-4:]
+            return jsonify({'message': 'login successful', 'nickname': last_four}), 200
         else:
             new_phone_number = PhoneNumber(phone_number=phone_number)
-            db.session.add(new_phone_number)
-            db.session.commit()
-            return jsonify({'message': 'get new phone_number'}), 200
+            try:
+                db.session.add(new_phone_number)
+                db.session.commit()
+                last_four = phone_number[-4:]  # 새로 추가된 전화번호의 뒷 4자리 추출
+                return jsonify({'message': 'new phone number saved', 'nickname': last_four}), 200
+            except Exception as e:
+                db.session.rollback()  # 예외 발생 시 롤백
+                return jsonify({'message': 'Error saving phone number', 'error': str(e)}), 500
     else:
         return jsonify({'message': 'Phone number is missing'}), 400
 
