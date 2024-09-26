@@ -49,14 +49,14 @@ def submit_phone():
 
         if ex_phone_number:
             last_four = ex_phone_number.phone_number[-4:]
-            return jsonify({'message': 'login successful', 'nickname': last_four}), 200
+            return jsonify({'nickname': last_four}), 200
         else:
             new_phone_number = PhoneNumber(phone_number=phone_number)
             try:
                 db.session.add(new_phone_number)
                 db.session.commit()
-                last_four = phone_number[-4:]  # 새로 추가된 전화번호의 뒷 4자리 추출
-                return jsonify({'message': 'new phone number saved', 'nickname': last_four}), 200
+                last_four = phone_number[-4:]  #전화번호 뒷 4자리 추출
+                return jsonify({'nickname': last_four}), 200
             except Exception as e:
                 db.session.rollback()  # 예외 발생 시 롤백
                 return jsonify({'message': 'Error saving phone number', 'error': str(e)}), 500
@@ -66,7 +66,7 @@ def submit_phone():
 
 
 
-#쓰레기의 종류
+#trash-kind 엔드포인트
 @app.route('/trash-kind', methods=['POST'])
 def submit_trash():
     data = request.get_json()
@@ -75,7 +75,7 @@ def submit_trash():
         # 기존 데이터 삭제
         db.session.query(TrashKind).delete()  # 모든 기존 데이터 삭제
         db.session.commit()
-
+        #새 값 저장
         new_trash = TrashKind(trash_name=trash)
         db.session.add(new_trash)
         db.session.commit()
@@ -96,7 +96,7 @@ def submit_trash():
             return jsonify({'message': 'Trash is missing'}), 400
     
 
-# POST 요청을 받아서 label을 처리하는 엔드포인트
+#label 처리 엔드포인트
 @app.route('/label', methods=['POST'])
 def receive_label():
     data = request.get_json()
@@ -110,11 +110,20 @@ def receive_label():
         db.session.add(new_label)
         db.session.commit()
 
-        print(f"Received label: {label}")
+        print(f"Received label: {label}")   
         return jsonify({'message': 'Label received successfully', 'label': label}), 200
     else:
         return jsonify({'error': 'No label provided'}), 400
 
+#라벨, 버튼 비교 엔드포인트
+@app.route('/', methods=['POST'])
+def compare():
+    if db.label == db.trash:
+        return jsonify({'message': 'Right'}), 200
+    elif db.label != db.trash:
+        return jsonify({'message': 'Wrong'}), 200
+    else:
+        return jsonify({'message': 'Error the compared'}), 400
 
 
 if __name__ == '__main__':
