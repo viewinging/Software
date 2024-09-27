@@ -131,26 +131,25 @@ def translate_trash(trash):
 def compare_with_data():
     data = request.get_json()
     trash = data.get('trash')  # 쓰레기 종류
-    label = data.get('label')  # 라벨
+    # 라즈베리파이에서 받아올 라벨 값 (현재는 가정된 값)
+    ras_value = 'vinyl'  # 예시 값으로 라벨을 직접 지정, 실제 라벨은 라즈베리파이에서 받아올 것
 
-    if not trash or not label:
-        return jsonify({'message': 'Trash or label is missing'}), 400
+    if not trash:
+        return jsonify({'message': 'Trash is missing'}), 400
 
     # 번역된 쓰레기 종류
     translated_trash = translate_trash(trash)
 
     if not translated_trash:
         return jsonify({'message': 'Invalid trash type'}), 400
-    
+
     new_trash = TrashKind(trash_name=translated_trash)
-    new_label = Label(label=label)
 
     db.session.add(new_trash)
-    db.session.add(new_label)
     db.session.commit()
 
-    # 비교
-    if new_label.label == new_trash.trash_name:
+    # 비교 (React에서 받은 쓰레기 종류와 라즈베리파이에서 받은 라벨 값을 비교)
+    if ras_value == translated_trash:
         result = 'Right'
         score = plus
     else:
