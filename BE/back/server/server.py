@@ -51,7 +51,6 @@ def submit_phone():
 
     if phone_number:
         ex_phone_number = PhoneNumber.query.filter_by(phone_number=phone_number).first()
-
         if ex_phone_number:
             last_four = ex_phone_number.phone_number[-4:]
             return jsonify({'nickname': last_four}), 200
@@ -75,7 +74,6 @@ def get_nickname():
 
     if phone_number:
         ex_phone_number = PhoneNumber.query.filter_by(phone_number=phone_number).first()
-
         if ex_phone_number:
             nickname = ex_phone_number.nickname
             return jsonify({'nickname': nickname}), 200
@@ -102,6 +100,7 @@ def manu_outo():
     else:
         return jsonify({'message': 'mo parameter is missing'}), 400
 
+
 def translate_trash(trash):
     translations = {
         '플라스틱': 'plastic',
@@ -110,12 +109,13 @@ def translate_trash(trash):
         '일반쓰레기': 'general'
     }
     return translations.get(trash, None)
-
 @app.route('/label', methods=['POST'])
 def compare_with_data():
     data = request.get_json()
     trash = data.get('trash')  # 쓰레기 종류
-    ras_value = 'vinyl'  # 예시 값으로 라벨을 직접 지정, 실제 라벨은 라즈베리파이에서 받아올 것
+    ras_value = 'vinyl'  # 예시 값
+
+    
     if not trash:
         return jsonify({'message': 'Trash is missing'}), 400
 
@@ -130,7 +130,7 @@ def compare_with_data():
         return jsonify({'message': 'No phone number found'}), 404
 
     # 기존 점수 계산
-    existing_scores = [result.score for result in recent_phone_number.compare_results]  # CompareResult에서 점수 가져오기
+    existing_scores = [result.score for result in recent_phone_number.compare_results]
     total_score = sum(existing_scores)
 
     # 비교
@@ -143,14 +143,12 @@ def compare_with_data():
 
     # 기존 결과 삭제
     CompareResult.query.filter_by(nickname=recent_phone_number.nickname).delete()
-
     # 새로운 비교 결과 저장
     compare_result = CompareResult(result=result, score=total_score, nickname=recent_phone_number.nickname)
     db.session.add(compare_result)
 
     # 쓰레기 갯수 저장
     trash_count = TrashCount.query.filter_by(nickname=recent_phone_number.nickname, trash_type=translated_trash).first()
-
     if trash_count:
         trash_count.count += 1  # 갯수 증가
     else:
@@ -159,22 +157,19 @@ def compare_with_data():
 
     db.session.commit()
 
-    return jsonify({'message': result, 'score': total_score}), 200
-
-# 쓰레기 갯수 조회
-@app.route('/get-trash-counts', methods=['GET'])
-def get_trash_counts():
-    results = []
-    trash_counts = TrashCount.query.all()
+    # 쓰레기 갯수 조회
+    results = {}
+    trash_counts = TrashCount.query.filter_by(nickname=recent_phone_number.nickname).all()
 
     for trash_count in trash_counts:
-        results.append({
-            'nickname': trash_count.nickname,
-            'trash_type': trash_count.trash_type,
-            'count': trash_count.count
-        })
+        results[trash_count.trash_type] = trash_count.count
 
-    return jsonify(results), 200
+    return jsonify({
+        'message': result,
+        'score': total_score,
+        'trash_counts': results
+    }), 200
+
 
 
 if __name__ == '__main__':
