@@ -135,26 +135,33 @@ def compare_with_data():
     translated_trash = translate_trash(trash)
     if not translated_trash:
         return jsonify({'message': 'Invalid trash type'}), 400
-    
-    # 비교
-    if ras_value == translated_trash:
-        result = 'Right'
-        score = plus
-    else:
-        result = 'Wrong'
-        score = minus
 
     # 가장 최근에 저장된 전화번호 찾기
     recent_phone_number = PhoneNumber.query.order_by(PhoneNumber.id.desc()).first()
     if not recent_phone_number:
         return jsonify({'message': 'No phone number found'}), 404
 
-    # 비교 결과 저장
-    compare_result = CompareResult(result=result, score=score, phone_number_id=recent_phone_number.id)
+    # 기존 점수 계산
+    existing_scores = [result.score for result in recent_phone_number.scores]
+    total_score = sum(existing_scores)
+
+    # 비교
+    if ras_value == translated_trash:
+        result = 'Right'
+        total_score += plus  # 점수 추가
+    else:
+        result = 'Wrong'
+        total_score += minus  # 점수 추가
+
+    # 기존 결과 삭제
+    CompareResult.query.filter_by(phone_number_id=recent_phone_number.id).delete()
+
+    # 새로운 비교 결과 저장
+    compare_result = CompareResult(result=result, score=total_score, phone_number_id=recent_phone_number.id)
     db.session.add(compare_result)
     db.session.commit()
 
-    return jsonify({'message': result, 'score': score}), 200
+    return jsonify({'message': result, 'score': total_score}), 200
 
 # 비교 결과 조회 엔드포인트
 @app.route('/compare_result', methods=['GET'])
