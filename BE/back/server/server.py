@@ -13,7 +13,7 @@ CORS(app, resources={
         r"/get-nickname": {"origins": "*"},
         r"/auto_manu": {"origins": "*"},
         r"/label": {"origins": "*"},
-        r"/compare_result": {"origins": "*"}  # 비교 결과 조회 허용
+        r"/compare_result": {"origins": "*"}
      })
 
 # DB 설정
@@ -26,7 +26,7 @@ class PhoneNumber(db.Model):  # 폰번호
     id = db.Column(db.Integer, primary_key=True)
     phone_number = db.Column(db.String(13), unique=True)
     nickname = db.Column(db.String(4), unique=True)
-    scores = db.relationship('CompareResult', backref='phone_number', lazy=True)  # 점수와의 관계 추가
+    scores = db.relationship('CompareResult', backref='phone_number', lazy=True)
 
     def __repr__(self):
         return f'<PhoneNumber {self.phone_number}>'
@@ -49,10 +49,10 @@ class CompareResult(db.Model):  # 비교 결과 저장
     id = db.Column(db.Integer, primary_key=True)
     result = db.Column(db.String(10))
     score = db.Column(db.Integer)
-    phone_number_id = db.Column(db.Integer, db.ForeignKey('phone_number.id'), nullable=False)  # 전화번호와 연결
+    nickname = db.Column(db.String(4), db.ForeignKey('phone_number.nickname'))  # nickname을 외래 키로 설정
 
     def __repr__(self):
-        return f'<CompareResult {self.result} - {self.score}>'
+        return f'<CompareResult {self.result} - {self.score} - {self.nickname}>'
 
 # 전화번호 제출
 @app.route('/submit-phone', methods=['POST'])
@@ -78,7 +78,7 @@ def submit_phone():
                 return jsonify({'message': 'Error saving phone number', 'error': str(e)}), 500
     else:
         return jsonify({'message': 'Phone number is missing'}), 400
-    
+
 # 닉네임 반환
 @app.route('/get-nickname', methods=['GET'])
 def get_nickname():
@@ -88,7 +88,7 @@ def get_nickname():
         ex_phone_number = PhoneNumber.query.filter_by(phone_number=phone_number).first()
 
         if ex_phone_number:
-            nickname = ex_phone_number.phone_number[-4:]
+            nickname = ex_phone_number.nickname
             return jsonify({'nickname': nickname}), 200
         else:
             return jsonify({'message': 'Phone number not found'}), 404
@@ -154,24 +154,14 @@ def compare_with_data():
         total_score += minus  # 점수 추가
 
     # 기존 결과 삭제
-    CompareResult.query.filter_by(phone_number_id=recent_phone_number.id).delete()
+    CompareResult.query.filter_by(nickname=recent_phone_number.nickname).delete()
 
     # 새로운 비교 결과 저장
-    compare_result = CompareResult(result=result, score=total_score, phone_number_id=recent_phone_number.id)
+    compare_result = CompareResult(result=result, score=total_score, nickname=recent_phone_number.nickname)
     db.session.add(compare_result)
     db.session.commit()
 
     return jsonify({'message': result, 'score': total_score}), 200
-
-# 비교 결과 조회 엔드포인트
-@app.route('/compare_result', methods=['GET'])
-def get_compare_result():
-    recent_results = CompareResult.query.order_by(CompareResult.id.desc()).all()
-    if recent_results:
-        results = [{'result': r.result, 'score': r.score, 'phone_number': r.phone_number.phone_number} for r in recent_results]
-        return jsonify(results), 200
-    else:
-        return jsonify({'message': 'No comparison results found'}), 404
 
 if __name__ == '__main__':
     with app.app_context():
