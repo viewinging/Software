@@ -7,7 +7,7 @@ minus = -200
 
 app = Flask(__name__)
 
-#CORS설정
+# CORS 설정
 CORS(app, resources={
         r"/submit-phone": {"origins": "*"},
         r"/get-nickname": {"origins": "*"},
@@ -15,16 +15,16 @@ CORS(app, resources={
         r"/label": {"origins": "*"}
      })
 
-#DB설정
+# DB 설정
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:1234@localhost/viewinging'  # DB URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
-
 
 # DB 모델 정의
 class PhoneNumber(db.Model):  # 폰번호
     id = db.Column(db.Integer, primary_key=True)
     phone_number = db.Column(db.String(13), unique=True)
+    nickname = db.Column(db.String(4), unique=True)
 
     def __repr__(self):
         return f'<PhoneNumber {self.phone_number}>'
@@ -51,35 +51,33 @@ class CompareResult(db.Model):  # 비교 결과 저장
     def __repr__(self):
         return f'<CompareResult {self.result} - {self.score}>'
 
-
-#폰번호
+# 전화번호 제출
 @app.route('/submit-phone', methods=['POST'])
 def submit_phone():
     data = request.get_json()
     phone_number = data.get('phoneNumber')
 
     if phone_number:
-        #기존존재여부확인
+        # 기존 전화번호 존재 여부 확인
         ex_phone_number = PhoneNumber.query.filter_by(phone_number=phone_number).first()
 
         if ex_phone_number:
             last_four = ex_phone_number.phone_number[-4:]
             return jsonify({'nickname': last_four}), 200
         else:
-            new_phone_number = PhoneNumber(phone_number=phone_number)
+            nickname = phone_number[-4:]  # 새로운 전화번호의 마지막 4자리로 닉네임 설정
+            new_phone_number = PhoneNumber(phone_number=phone_number, nickname=nickname)
             try:
                 db.session.add(new_phone_number)
                 db.session.commit()
-                last_four = phone_number[-4:]
-                return jsonify({'nickname': last_four}), 200
-            #예외처리 롤백
+                return jsonify({'nickname': nickname}), 200
             except Exception as e:
                 db.session.rollback()
                 return jsonify({'message': 'Error saving phone number', 'error': str(e)}), 500
     else:
         return jsonify({'message': 'Phone number is missing'}), 400
     
-#닉네임 반환
+# 닉네임 반환
 @app.route('/get-nickname', methods=['GET'])
 def get_nickname():
     phone_number = request.args.get('phoneNumber')
@@ -88,15 +86,14 @@ def get_nickname():
         ex_phone_number = PhoneNumber.query.filter_by(phone_number=phone_number).first()
 
         if ex_phone_number:
-            last_four = ex_phone_number.phone_number[-4:]
-            return jsonify({'nickname': last_four}), 200
+            nickname = ex_phone_number.phone_number[-4:]
+            return jsonify({'nickname': nickname}), 200
         else:
             return jsonify({'message': 'Phone number not found'}), 404
     else:
         return jsonify({'message': 'Phone number is missing'}), 400
 
-
-#자동 | 수동 신호 전달
+# 자동 | 수동 신호 전달
 @app.route('/auto_manu', methods=['POST'])
 def manu_outo():
     data = request.get_json()
@@ -106,17 +103,15 @@ def manu_outo():
             ras_url = "http://<Raspberry_Pi_IP>:<Port>/receive_data"
             response = request.post(ras_url, json={'mo': mo})
 
-            if response.status == 200:
-                return jsonify({'Data send to RasberryPi successfully!'}), 200
+            if response.status_code == 200:
+                return jsonify({'message': 'Data sent to Raspberry Pi successfully!'}), 200
             else:
-                return jsonify({'Data send to failed!'}), 400
+                return jsonify({'message': 'Data send failed!'}), 400
 
         except Exception as e:
             return jsonify({'error': str(e)}), 500
     else:
-        return jsonify({}), 400       
-
-
+        return jsonify({'message': 'mo parameter is missing'}), 400       
 
 def translate_trash(trash):
     translations = {
@@ -126,12 +121,12 @@ def translate_trash(trash):
         '일반쓰레기': 'general'
     }
     return translations.get(trash, None)
+
 # 쓰레기 종류와 라벨 비교
 @app.route('/label', methods=['POST'])
 def compare_with_data():
     data = request.get_json()
     trash = data.get('trash')  # 쓰레기 종류
-    # 라즈베리파이에서 받아올 라벨 값 (현재는 가정된 값)
     ras_value = 'vinyl'  # 예시 값으로 라벨을 직접 지정, 실제 라벨은 라즈베리파이에서 받아올 것
 
     if not trash:
@@ -142,9 +137,10 @@ def compare_with_data():
 
     if not translated_trash:
         return jsonify({'message': 'Invalid trash type'}), 400
+    
+    TrashKind.query.delete()
 
     new_trash = TrashKind(trash_name=translated_trash)
-
     db.session.add(new_trash)
     db.session.commit()
 
@@ -156,6 +152,7 @@ def compare_with_data():
         result = 'Wrong'
         score = minus
 
+    CompareResult.query.delete()
     # 결과 저장
     compare_result = CompareResult(result=result, score=score)
     db.session.add(compare_result)
@@ -163,8 +160,7 @@ def compare_with_data():
 
     return jsonify({'message': result, 'score': score}), 200
 
-
-# 비교결과조회 엔드포인트
+# 비교 결과 조회 엔드포인트
 @app.route('/compare_result', methods=['GET'])
 def get_compare_result():
     recent_result = CompareResult.query.order_by(CompareResult.id.desc()).first()
@@ -172,9 +168,6 @@ def get_compare_result():
         return jsonify({'result': recent_result.result, 'score': recent_result.score}), 200
     else:
         return jsonify({'message': 'No comparison result found'}), 404
-
-
-
 
 if __name__ == '__main__':
     with app.app_context():
