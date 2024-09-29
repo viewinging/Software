@@ -16,7 +16,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 # DB 모델 정의
-class PhoneNumber(db.Model):
+class PhoneNumber(db.Model):  # 폰번호
     id = db.Column(db.Integer, primary_key=True)
     phone_number = db.Column(db.String(13), unique=True)
     nickname = db.Column(db.String(4), unique=True)
@@ -26,15 +26,28 @@ class PhoneNumber(db.Model):
     def __repr__(self):
         return f'<PhoneNumber {self.phone_number}>'
 
-class TrashCount(db.Model):
+
+class TrashCount(db.Model):  # 쓰레기 종류/갯수
     id = db.Column(db.Integer, primary_key=True)
     nickname = db.Column(db.String(4), db.ForeignKey('phone_number.nickname'))
-    trash_type = db.Column(db.String(30))
-    count = db.Column(db.Integer, default=0)
-    def __repr__(self):
-        return f'<TrashCount {self.nickname} - {self.trash_type}: {self.count}>'
+    plastic_count = db.Column(db.Integer, default=0)
+    vinyl_count = db.Column(db.Integer, default=0)
+    can_count = db.Column(db.Integer, default=0)
+    general_count = db.Column(db.Integer, default=0)
 
-class CompareResult(db.Model):
+    def __repr__(self):
+        return f'<TrashCount {self.nickname} - Plastic: {self.plastic_count}, Vinyl: {self.vinyl_count}, Can: {self.can_count}, General: {self.general_count}>'
+
+
+class Label(db.Model):  # 라벨
+    id = db.Column(db.Integer, primary_key=True)
+    label = db.Column(db.String(20))
+
+    def __repr__(self):
+        return f'<Label {self.label}>'
+
+
+class CompareResult(db.Model):  # 비교값
     id = db.Column(db.Integer, primary_key=True)
     result = db.Column(db.String(10))
     score = db.Column(db.Integer)
@@ -42,6 +55,7 @@ class CompareResult(db.Model):
 
     def __repr__(self):
         return f'<CompareResult {self.result} - {self.score} - {self.nickname}>'
+
 
 # 전화번호 제출
 @app.route('/submit-phone', methods=['POST'])
@@ -67,6 +81,7 @@ def submit_phone():
     else:
         return jsonify({'message': 'Phone number is missing'}), 400
 
+
 # 닉네임 반환
 @app.route('/get-nickname', methods=['GET'])
 def get_nickname():
@@ -82,24 +97,6 @@ def get_nickname():
     else:
         return jsonify({'message': 'Phone number is missing'}), 400
 
-# 자동 | 수동 신호 전달
-@app.route('/auto_manu', methods=['POST'])
-def manu_outo():
-    data = request.get_json()
-    mo = data.get('mo')
-    if mo:
-        try:
-            ras_url = "http://10.150.150.80:<Port>/receive_data"
-            response = request.post(ras_url, json={'mo': mo})
-            if response.status_code == 200:
-                return jsonify({'message': 'Data sent to Raspberry Pi successfully!'}), 200
-            else:
-                return jsonify({'message': 'Data send failed!'}), 400
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-    else:
-        return jsonify({'message': 'mo parameter is missing'}), 400
-
 
 def translate_trash(trash):
     translations = {
@@ -109,13 +106,13 @@ def translate_trash(trash):
         '일반쓰레기': 'general'
     }
     return translations.get(trash, None)
+
+
 @app.route('/label', methods=['POST'])
 def compare_with_data():
     data = request.get_json()
     trash = data.get('trash')  # 쓰레기 종류
-    ras_value = 'vinyl'  # 예시 값
 
-    
     if not trash:
         return jsonify({'message': 'Trash is missing'}), 400
 
@@ -123,6 +120,8 @@ def compare_with_data():
     translated_trash = translate_trash(trash)
     if not translated_trash:
         return jsonify({'message': 'Invalid trash type'}), 400
+
+    correct_trash_types = ['vinyl', 'can'] 
 
     # 가장 최근에 저장된 전화번호 찾기
     recent_phone_number = PhoneNumber.query.order_by(PhoneNumber.id.desc()).first()
@@ -133,43 +132,118 @@ def compare_with_data():
     existing_scores = [result.score for result in recent_phone_number.compare_results]
     total_score = sum(existing_scores)
 
-    # 비교
-    if ras_value == translated_trash:
+    # 쓰레기 및 라벨값 비교
+    if translated_trash in correct_trash_types:
         result = 'Right'
-        total_score += plus  # 점수 추가
+        total_score += plus
+
+        # 쓰레기 갯수 저장
+        trash_count = TrashCount.query.filter_by(nickname=recent_phone_number.nickname).first()
+
+        if not trash_count:
+            # 새로운 사용자의 경우 TrashCount 레코드 생성
+            trash_count = TrashCount(nickname=recent_phone_number.nickname)
+            # 초기값 설정
+            db.session.add(trash_count)
+
+        # 기존 사용자의 경우 해당 사용자에 대한 쓰레기 종류에 따른 카운트 업데이트
+        if translated_trash == 'plastic':
+            trash_count.plastic_count = (trash_count.plastic_count or 0) + 1
+        elif translated_trash == 'vinyl':
+            trash_count.vinyl_count = (trash_count.vinyl_count or 0) + 1
+        elif translated_trash == 'can':
+            trash_count.can_count = (trash_count.can_count or 0) + 1
+        elif translated_trash == 'general':
+            trash_count.general_count = (trash_count.general_count or 0) + 1
+
     else:
         result = 'Wrong'
-        total_score += minus  # 점수 추가
+        total_score += minus
 
     # 기존 결과 삭제
     CompareResult.query.filter_by(nickname=recent_phone_number.nickname).delete()
+
     # 새로운 비교 결과 저장
     compare_result = CompareResult(result=result, score=total_score, nickname=recent_phone_number.nickname)
     db.session.add(compare_result)
 
-    # 쓰레기 갯수 저장
-    trash_count = TrashCount.query.filter_by(nickname=recent_phone_number.nickname, trash_type=translated_trash).first()
-    if trash_count:
-        trash_count.count += 1  # 갯수 증가
-    else:
-        trash_count = TrashCount(nickname=recent_phone_number.nickname, trash_type=translated_trash, count=1)
-        db.session.add(trash_count)
-
     db.session.commit()
 
     # 쓰레기 갯수 조회
-    results = {}
-    trash_counts = TrashCount.query.filter_by(nickname=recent_phone_number.nickname).all()
-
-    for trash_count in trash_counts:
-        results[trash_count.trash_type] = trash_count.count
+    counts = {}
+    trash_count = TrashCount.query.filter_by(nickname=recent_phone_number.nickname).first()
+    if trash_count:
+        counts['plastic'] = trash_count.plastic_count
+        counts['vinyl'] = trash_count.vinyl_count
+        counts['can'] = trash_count.can_count
+        counts['general'] = trash_count.general_count
 
     return jsonify({
-        'message': result,
+        'result': result,
         'score': total_score,
-        'trash_counts': results
+        'trash_counts': counts
     }), 200
 
+@app.route('/get-trash-counts', methods=['GET'])
+def get_trash_counts():
+    # 가장 최근에 저장된 전화번호 찾기
+    recent_phone_number = PhoneNumber.query.order_by(PhoneNumber.id.desc()).first()
+    
+    if not recent_phone_number:
+        return jsonify({'message': 'No phone number found'}), 404
+
+    # 해당 사용자의 TrashCount 찾기
+    trash_count = TrashCount.query.filter_by(nickname=recent_phone_number.nickname).first()
+
+    if not trash_count:
+        return jsonify({'message': 'No trash counts found for this nickname'}), 404
+
+    # 카운트 정보 반환
+    return jsonify({
+        'plastic_count': trash_count.plastic_count,
+        'vinyl_count': trash_count.vinyl_count,
+        'can_count': trash_count.can_count,
+        'general_count': trash_count.general_count
+    }), 200
+
+
+@app.route('/get-latest-score', methods=['GET'])
+def get_latest_score():
+    # 최근에 들어온 전화번호를 찾음
+    recent_phone_number = PhoneNumber.query.order_by(PhoneNumber.id.desc()).first()
+    
+    if not recent_phone_number:
+        return jsonify({'message': 'No phone number found'}), 404
+
+    # 해당 전화번호에 대한 비교 결과를 찾음
+    recent_compare_result = CompareResult.query.filter_by(nickname=recent_phone_number.nickname).order_by(CompareResult.id.desc()).first()
+
+    if not recent_compare_result:
+        return jsonify({'message': 'No compare result found for this nickname'}), 404
+
+    # 결과 반환
+    return jsonify({
+        'nickname': recent_compare_result.nickname,
+        'result': recent_compare_result.result,
+        'score': recent_compare_result.score
+    }), 200
+
+
+# 점수 순위 조회
+@app.route('/rankings', methods=['GET'])
+def get_rankings():
+    # CompareResult에서 모든 결과를 가져와서 점수에 따라 정렬
+    results = CompareResult.query.order_by(CompareResult.score.desc()).all()
+
+    # 결과를 순위 형식으로 변환
+    rankings = []
+    for rank, result in enumerate(results, start=1):
+        rankings.append({
+            'rank': rank,
+            'nickname': result.nickname,
+            'score': result.score
+        })
+    return jsonify(rankings), 200
 
 
 if __name__ == '__main__':
