@@ -4,6 +4,7 @@ from flask_cors import CORS
 
 plus = 200
 minus = -200
+auto_score_increment = 100  # 자동 점수 증가 값
 
 app = Flask(__name__)
 
@@ -22,6 +23,7 @@ class PhoneNumber(db.Model):  # 폰번호
     nickname = db.Column(db.String(4), unique=True)
     trash_counts = db.relationship('TrashCount', backref='phone_number', lazy=True)
     compare_results = db.relationship('CompareResult', backref='phone_number', lazy=True)
+    auto_scores = db.relationship('AutoScore', backref='phone_number', lazy=True)  # 추가
 
     def __repr__(self):
         return f'<PhoneNumber {self.phone_number}>'
@@ -57,6 +59,15 @@ class CompareResult(db.Model):  # 비교값
         return f'<CompareResult {self.result} - {self.score} - {self.nickname}>'
 
 
+class AutoScore(db.Model):  # 자동 점수
+    id = db.Column(db.Integer, primary_key=True)
+    nickname = db.Column(db.String(4), db.ForeignKey('phone_number.nickname'))
+    score = db.Column(db.Integer, default=0)
+
+    def __repr__(self):
+        return f'<AutoScore {self.nickname} - Score: {self.score}>'
+
+
 # 전화번호 제출
 @app.route('/submit-phone', methods=['POST'])
 def submit_phone():
@@ -80,6 +91,55 @@ def submit_phone():
                 return jsonify({'message': 'Error saving phone number', 'error': str(e)}), 500
     else:
         return jsonify({'message': 'Phone number is missing'}), 400
+
+
+# 자동 점수 업데이트
+@app.route('/auto-value', methods=['POST'])
+def auto_value():
+    data = request.get_json()
+    auto_values = data.get('autoValues')
+
+    if auto_values:
+        # 가장 최근에 저장된 전화번호 찾기
+        recent_phone_number = PhoneNumber.query.order_by(PhoneNumber.id.desc()).first()
+
+        if not recent_phone_number:
+            return jsonify({'message': 'No phone number found'}), 404
+
+        # 자동 점수 증가
+        auto_score = AutoScore.query.filter_by(nickname=recent_phone_number.nickname).first()
+        if not auto_score:
+            auto_score = AutoScore(nickname=recent_phone_number.nickname)
+            db.session.add(auto_score)
+
+        auto_score.score += auto_score_increment
+
+        # DB에 저장
+        db.session.commit()
+
+        return jsonify({'message': 'The auto values get', 'nickname': recent_phone_number.nickname, 'score': auto_score.score}), 200
+    else:
+        return jsonify({'message': 'Missing auto values'}), 400
+
+@app.route('/get-auto-value', methods=['GET'])
+def get_auto_value():
+    # 가장 최근에 저장된 전화번호 찾기
+    recent_phone_number = PhoneNumber.query.order_by(PhoneNumber.id.desc()).first()
+    
+    if not recent_phone_number:
+        return jsonify({'message': 'No phone number found'}), 404
+
+    # 해당 전화번호에 대한 자동 점수 찾기
+    auto_score = AutoScore.query.filter_by(nickname=recent_phone_number.nickname).first()
+
+    if not auto_score:
+        return jsonify({'message': 'No auto score found for this nickname'}), 404
+
+    # 결과 반환
+    return jsonify({
+        'nickname': auto_score.nickname,
+        'score': auto_score.score
+    }), 200
 
 
 # 닉네임 반환
@@ -111,7 +171,8 @@ def translate_trash(trash):
 @app.route('/label', methods=['POST'])
 def compare_with_data():
     data = request.get_json()
-    trash = data.get('trash')  # 쓰레기 종류
+    trash = data.get('trash')
+    # label = data.get('label')
 
     if not trash:
         return jsonify({'message': 'Trash is missing'}), 400
@@ -121,7 +182,15 @@ def compare_with_data():
     if not translated_trash:
         return jsonify({'message': 'Invalid trash type'}), 400
 
-    correct_trash_types = ['vinyl', 'can'] 
+    correct_trash_types = ['vinyl', 'can']  # 임의의 라벨값
+
+    # # 기존 결과 삭제
+    # Label.query.filter_by(label=label).delete()
+
+    # # 새로운 비교 결과 저장
+    # new_label = Label(label=label)
+    # db.session.add(new_label)
+    # db.session.commit()
 
     # 가장 최근에 저장된 전화번호 찾기
     recent_phone_number = PhoneNumber.query.order_by(PhoneNumber.id.desc()).first()
@@ -143,7 +212,6 @@ def compare_with_data():
         if not trash_count:
             # 새로운 사용자의 경우 TrashCount 레코드 생성
             trash_count = TrashCount(nickname=recent_phone_number.nickname)
-            # 초기값 설정
             db.session.add(trash_count)
 
         # 기존 사용자의 경우 해당 사용자에 대한 쓰레기 종류에 따른 카운트 업데이트
