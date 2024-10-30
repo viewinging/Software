@@ -23,10 +23,15 @@ class PhoneNumber(db.Model):  # 폰번호
     nickname = db.Column(db.String(4), unique=True)
     trash_counts = db.relationship('TrashCount', backref='phone_number', lazy=True)
     compare_results = db.relationship('CompareResult', backref='phone_number', lazy=True)
-    auto_scores = db.relationship('AutoScore', backref='phone_number', lazy=True)  # 추가
-
     def __repr__(self):
         return f'<PhoneNumber {self.phone_number}>'
+    
+class AutoValue(db.Model):  #자동/수동 여부
+    id = db.Column(db.Integer, primary_key = True)
+    auto_value = db.Column(db.String(13), unique=True)
+
+    def __repr__(self):
+        return f'<AutoValue {self.auto_value}>'
 
 
 class TrashCount(db.Model):  # 쓰레기 종류/갯수
@@ -59,15 +64,6 @@ class CompareResult(db.Model):  # 비교값
         return f'<CompareResult {self.result} - {self.score} - {self.nickname}>'
 
 
-class AutoScore(db.Model):  # 자동 점수
-    id = db.Column(db.Integer, primary_key=True)
-    nickname = db.Column(db.String(4), db.ForeignKey('phone_number.nickname'))
-    score = db.Column(db.Integer, default=0)
-
-    def __repr__(self):
-        return f'<AutoScore {self.nickname} - Score: {self.score}>'
-
-
 # 전화번호 제출
 @app.route('/submit-phone', methods=['POST'])
 def submit_phone():
@@ -92,70 +88,40 @@ def submit_phone():
     else:
         return jsonify({'message': 'Phone number is missing'}), 400
 
-
-# 자동 점수 업데이트
-@app.route('/auto-value', methods=['POST'])
+#수동/자동 여부
+@app.route('/auto-signal', methods=['POST'])
 def auto_value():
     data = request.get_json()
-    auto_values = data.get('autoValues')
+    auto_value = data.get('auto-signal')
 
-    if auto_values:
-        # 가장 최근에 저장된 전화번호 찾기
-        recent_phone_number = PhoneNumber.query.order_by(PhoneNumber.id.desc()).first()
-
-        if not recent_phone_number:
-            return jsonify({'message': 'No phone number found'}), 404
-
-        # 자동 점수 증가
-        auto_score = AutoScore.query.filter_by(nickname=recent_phone_number.nickname).first()
-        if not auto_score:
-            auto_score = AutoScore(nickname=recent_phone_number.nickname)
-            db.session.add(auto_score)
-
-        auto_score.score += auto_score_increment
-
-        # DB에 저장
-        db.session.commit()
-
-        return jsonify({'message': 'The auto values get', 'nickname': recent_phone_number.nickname, 'score': auto_score.score}), 200
+    if auto_value:
+        try:
+            new_auto_value = AutoValue(auto_value=auto_value)
+            db.session.add(new_auto_value)
+            db.session.commit()
+            return jsonify({'message': f"{auto_value} saved successfully"}), 200
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'message': f"Error saving the value: {str(e)}"}), 400
+        
     else:
-        return jsonify({'message': 'Missing auto values'}), 400
-
-@app.route('/get-auto-value', methods=['GET'])
-def get_auto_value():
-    # 가장 최근에 저장된 전화번호 찾기
-    recent_phone_number = PhoneNumber.query.order_by(PhoneNumber.id.desc()).first()
-    
-    if not recent_phone_number:
-        return jsonify({'message': 'No phone number found'}), 404
-
-    # 해당 전화번호에 대한 자동 점수 찾기
-    auto_score = AutoScore.query.filter_by(nickname=recent_phone_number.nickname).first()
-
-    if not auto_score:
-        return jsonify({'message': 'No auto score found for this nickname'}), 404
-
-    # 결과 반환
-    return jsonify({
-        'nickname': auto_score.nickname,
-        'score': auto_score.score
-    }), 200
+        return jsonify({'message': 'Auto value is missing'}), 400
 
 
-# 닉네임 반환
-@app.route('/get-nickname', methods=['GET'])
-def get_nickname():
-    phone_number = request.args.get('phoneNumber')
+# # 닉네임 반환
+# @app.route('/get-nickname', methods=['GET'])
+# def get_nickname():
+#     phone_number = request.args.get('phoneNumber')
 
-    if phone_number:
-        ex_phone_number = PhoneNumber.query.filter_by(phone_number=phone_number).first()
-        if ex_phone_number:
-            nickname = ex_phone_number.nickname
-            return jsonify({'nickname': nickname}), 200
-        else:
-            return jsonify({'message': 'Phone number not found'}), 404
-    else:
-        return jsonify({'message': 'Phone number is missing'}), 400
+#     if phone_number:
+#         ex_phone_number = PhoneNumber.query.filter_by(phone_number=phone_number).first()
+#         if ex_phone_number:
+#             nickname = ex_phone_number.nickname
+#             return jsonify({'nickname': nickname}), 200
+#         else:
+#             return jsonify({'message': 'Phone number not found'}), 404
+#     else:
+#         return jsonify({'message': 'Phone number is missing'}), 400
 
 
 def translate_trash(trash):
